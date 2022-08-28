@@ -119,6 +119,30 @@ impl TcpStream {
     pub fn into_split(self) -> (OwnedReadHalf, OwnedWriteHalf) {
         split_owned(self)
     }
+
+    /// Splice data from self to pipe.
+    #[cfg(all(target_os = "linux", feature = "splice"))]
+    pub async fn splice_to_pipe(
+        &mut self,
+        pipe: &mut crate::net::Pipe,
+        len: u32,
+    ) -> io::Result<u32> {
+        let op = Op::splice_to_pipe(&self.fd, &pipe.fd, len)?;
+        let completion = op.await;
+        completion.meta.result
+    }
+
+    /// Splice data from self to pipe.
+    #[cfg(all(target_os = "linux", feature = "splice"))]
+    pub async fn splice_from_pipe(
+        &mut self,
+        pipe: &mut crate::net::Pipe,
+        len: u32,
+    ) -> io::Result<u32> {
+        let op = Op::splice_from_pipe(&pipe.fd, &self.fd, len)?;
+        let completion = op.await;
+        completion.meta.result
+    }
 }
 
 #[cfg(unix)]

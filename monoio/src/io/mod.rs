@@ -17,4 +17,6 @@ pub use async_write_rent::{AsyncWriteRent, AsyncWriteRentAt};
 pub use async_write_rent_ext::AsyncWriteRentExt;
 
 mod util;
+#[cfg(all(target_os = "linux", feature = "splice"))]
+pub use util::tcp_zero_copy;
 pub use util::{copy, BufReader, BufWriter, PrefixedReadIo};

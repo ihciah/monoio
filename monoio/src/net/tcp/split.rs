@@ -21,6 +21,20 @@ pub(crate) fn split(stream: &mut TcpStream) -> (ReadHalf<'_>, WriteHalf<'_>) {
 }
 
 #[allow(clippy::cast_ref_to_mut)]
+impl<'t> ReadHalf<'t> {
+    /// Splice data from self to pipe.
+    #[cfg(all(target_os = "linux", feature = "splice"))]
+    pub async fn splice_to_pipe(
+        &mut self,
+        pipe: &mut crate::net::Pipe,
+        len: u32,
+    ) -> io::Result<u32> {
+        let raw_stream = unsafe { &mut *(self.0 as *const TcpStream as *mut TcpStream) };
+        raw_stream.splice_to_pipe(pipe, len).await
+    }
+}
+
+#[allow(clippy::cast_ref_to_mut)]
 impl<'t> AsyncReadRent for ReadHalf<'t> {
     type ReadFuture<'a, B> = impl std::future::Future<Output = crate::BufResult<usize, B>> where
         't: 'a, B: IoBufMut + 'a;
@@ -37,6 +51,20 @@ impl<'t> AsyncReadRent for ReadHalf<'t> {
         // Submit the read operation
         let raw_stream = unsafe { &mut *(self.0 as *const TcpStream as *mut TcpStream) };
         raw_stream.readv(buf)
+    }
+}
+
+#[allow(clippy::cast_ref_to_mut)]
+impl<'t> WriteHalf<'t> {
+    /// Splice data from self from pipe.
+    #[cfg(all(target_os = "linux", feature = "splice"))]
+    pub async fn splice_from_pipe(
+        &mut self,
+        pipe: &mut crate::net::Pipe,
+        len: u32,
+    ) -> io::Result<u32> {
+        let raw_stream = unsafe { &mut *(self.0 as *const TcpStream as *mut TcpStream) };
+        raw_stream.splice_from_pipe(pipe, len).await
     }
 }
 
@@ -140,6 +168,17 @@ impl OwnedReadHalf {
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
         unsafe { &*self.0.get() }.local_addr()
     }
+
+    /// Splice data from self to pipe.
+    #[cfg(all(target_os = "linux", feature = "splice"))]
+    pub async fn splice_to_pipe(
+        &mut self,
+        pipe: &mut crate::net::Pipe,
+        len: u32,
+    ) -> io::Result<u32> {
+        let raw_stream = unsafe { &mut *self.0.get() };
+        raw_stream.splice_to_pipe(pipe, len).await
+    }
 }
 
 impl AsyncReadRent for OwnedReadHalf {
@@ -179,6 +218,17 @@ impl OwnedWriteHalf {
     /// Returns the local address that this stream is bound to.
     pub fn local_addr(&self) -> io::Result<SocketAddr> {
         unsafe { &*self.0.get() }.local_addr()
+    }
+
+    /// Splice data from self from pipe.
+    #[cfg(all(target_os = "linux", feature = "splice"))]
+    pub async fn splice_from_pipe(
+        &mut self,
+        pipe: &mut crate::net::Pipe,
+        len: u32,
+    ) -> io::Result<u32> {
+        let raw_stream = unsafe { &mut *self.0.get() };
+        raw_stream.splice_from_pipe(pipe, len).await
     }
 }
 
